@@ -1,5 +1,6 @@
 #include<reg52.h>			//52系列单片机头文件
 #include<intrins.h>			 //包含_nop_函数所在的头文件
+#include <math.h>
 #define uint unsigned int	  //宏定义
 #define uchar unsigned char
 sbit CS=P0^5;					 //ADC0804 CS 端
@@ -13,7 +14,7 @@ sbit fan = P3^2;
 sbit pure = P3^3;
 sbit ledPower = P0^4;
 uchar a,A1,A2,A3,pm,count; 
-uint pmA;
+uint pmA,pmB,pmX;
 uchar code table[]={
 								0xC0,  //"0"
                 0xF9,  //"1"
@@ -84,7 +85,7 @@ void display()	 //数码管显示函数
 void main()			//主程序
 {
 	TMOD |= 0x01;	  //使用模式1，16位定时器，使用"|"符号可以在使用多个定时器时不受影响		     
-	TH0 = 0x0DA;	      //给定初值，这里使用定时器最大值从0开始计数一直到65535溢出
+	TH0 = 0x0DA;	      //给定初值，这里使用定时器最大值从0XDA开始计数一直到65535溢出
 	TL0 = 0x30;
 	EA=1;            //总中断打开
 	ET0=1;           //定时器中断打开
@@ -103,11 +104,12 @@ void main()			//主程序
   {	
 	   display();	
 	}
-	if(pmA >= 3000){
+	if(pmA >= 200){
 		fan = 1;
     pure = 1;
+		delay(10000);
 	}
-	if(pmA <= 3000){
+	if(pmA <= 200){
 		fan = 0;
     pure = 0;
 	}
@@ -117,22 +119,27 @@ void Timer0_isr(void) interrupt 1 using 1
 {
 	TH0 = 0x0DA;		  //重新赋值，方式1是16位计数器，不能硬件重装初始值
 	TL0 = 0x30;
+	ledPower = 0;
 	count++;
-	if(count == 500)
+	if(count == 2)
 	{
 		count = 0;
 	}
-	ledPower = 0;
-	delay4us(70); //delay 280us
+	delay4us(90); //delay 280us
 	
-	P2 = 0xff;			//读取P2口之前先给其写全1
+	P2 = 0xff;			//读P2口之前先给其写全1
   rd = 1;				//选通AD0804 CS 端
 	_nop_();
   rd = 0;				//A/D读使能
 	_nop_();
-	if(count == 1){
-  pm = P2;			//A/D数据读取赋给P2口
+  if(count == 0){
+	pm = P2;			//A/D数据读取赋给P2口
 	pmA = pm *39;
+	}
+	if(count == 1){
+		pm = P2;			//A/D数据读取赋给P2口
+	  pmB = pm *39;
+		pmX = fabs(pmB - pmA);
 	}
 	rd = 1;
   delay4us(8); //delay 32us
